@@ -17,12 +17,22 @@ impl Vec2
         (self.0 * self.0 + self.1 * self.1).sqrt()
     }
 
+    pub fn dist(&self, rhs : &Vec2) -> f32
+    {
+        (self.clone() - rhs.clone()).magnitude().abs()
+    }
+
     pub fn clamp(&self, min : Vec2, max : Vec2) -> Self
     {
         let mut new_vec = self.clone();
         new_vec.0 = new_vec.0.clamp(min.0, max.0);
         new_vec.1 = new_vec.1.clamp(min.1, max.1);
         new_vec
+    }
+
+    pub fn normalized(&self) -> Self
+    {
+        self.clone() / self.magnitude()
     }
 }
 
@@ -109,6 +119,13 @@ impl From<(f32, f32)> for Vec2
 {
     fn from(value: (f32, f32)) -> Self {
         Self(value.0, value.1)
+    }
+}
+
+impl From<Vector2<f32>> for Vec2
+{
+    fn from(value: Vector2<f32>) -> Self {
+        Vec2(value.x, value.y)
     }
 }
 
