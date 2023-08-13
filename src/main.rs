@@ -1,8 +1,10 @@
+use std::time::{SystemTime, Duration};
+
 use speedy2d::{
     color::Color,
     dimen::Vector2,
     window::{WindowCreationOptions, WindowHandler, VirtualKeyCode},
-    Window,
+    Window, font::{Font, TextLayout, TextOptions},
 };
 use verlet_multithreaded::{
     consts::{HEIGHT, WIDTH},
@@ -10,10 +12,20 @@ use verlet_multithreaded::{
     physics::VerletPhysicsProperties, maths::Vec2,
 };
 
-#[derive(Default)]
+const BYTES : &[u8] = include_bytes!("../res/font.ttf");
+
 struct Verlet {
     phys_properties: VerletPhysicsProperties,
     nodes: Vec<Node>,
+    font : Font,
+    last_run_time: SystemTime,
+}
+
+impl Default for Verlet
+{
+    fn default() -> Self {
+        Self { phys_properties: Default::default(), nodes: Default::default(), font: Font::new(BYTES).unwrap(), last_run_time : SystemTime::now() }
+    }
 }
 
 fn main() {
@@ -65,7 +77,19 @@ impl WindowHandler for Verlet {
             node.draw(graphics);
         }
 
+        let now = SystemTime::now();
+
+        let dt = now.duration_since(self.last_run_time).unwrap().as_secs_f32();
+
+        let fps : f32 = 1.0 / dt;
+
+        self.last_run_time = now;
+
+        let text = self.font.layout_text(format!("FPS: {}", fps.floor()).as_str(), 32.0, TextOptions::new());
+        graphics.draw_text((0.0, 0.0), Color::WHITE, &text);
+
         helper.request_redraw();
+
     }
 
     fn on_key_down(
