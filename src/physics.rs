@@ -11,7 +11,7 @@ impl Default for VerletPhysicsProperties {
     fn default() -> Self {
         Self {
             friction: 0.97, // 3% energy is lost
-            ground_friction: 0.7, // 30% energy is lost
+            ground_friction: 0.9, // 30% energy is lost
             gravity: Vec2::UP,
             floor_height : 720.0
         }

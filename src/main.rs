@@ -54,8 +54,8 @@ fn main() {
 
     let mut verlet = Verlet::default();
 
-    for i in 0..10_000 {
-        let x = WIDTH / 10_000.0;
+    for i in 0..20 {
+        let x = WIDTH / 20.0;
         verlet.nodes.push(Node::new(i as f32 * x, i as f32 * x))
     }
 
@@ -101,7 +101,10 @@ impl WindowHandler for Verlet {
             grabbed.update_pos(pos);
         }
 
-        for node in &mut self.nodes {
+        Node::collision_check(&mut self.nodes);
+
+        for i in 0..self.nodes.len() {
+            let node = &mut self.nodes[i];
             node.update(&self.phys_properties);
             node.constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
             node.draw(graphics);
