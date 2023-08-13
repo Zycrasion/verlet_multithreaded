@@ -207,6 +207,9 @@ impl WindowHandler for Verlet {
                         node.repel(self.mouse_pos);
                     }
                 }
+                VirtualKeyCode::N => {
+                    self.nodes.push(Node::new(self.mouse_pos.0, self.mouse_pos.1));
+                }
                 _ => {}
             }
         }

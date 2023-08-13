@@ -32,7 +32,7 @@ impl Node {
     }
 
     pub fn collision_check(nodes: &mut Vec<Node>) {
-        for _ in 0..1000
+        for _ in 0..100
         {
             for i1 in 0..nodes.len() {
                 for i2 in 0..nodes.len() {
@@ -55,6 +55,12 @@ impl Node {
                         nodes[i1].update_pos_no_vel(n1 + (dist_needed * m));
                         let n2 = nodes[i2].pos;
                         nodes[i2].update_pos_no_vel(n2 - (dist_needed * (1.0 - m)));
+                    }
+
+                    if dist == 0.0
+                    {
+                        nodes[i1].update_pos(Vec2(100.0, 100.0));
+                        nodes[i2].update_pos(Vec2(200.0, 200.0));
                     }
                 }
             }
