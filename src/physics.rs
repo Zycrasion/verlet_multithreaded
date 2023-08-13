@@ -1,10 +1,12 @@
 use crate::maths::Vec2;
 
+#[derive(Clone, Copy, Debug)]
 pub struct VerletPhysicsProperties {
     pub friction: f32,
     pub ground_friction: f32,
     pub gravity : Vec2,
-    pub floor_height : f32
+    pub floor_height : f32,
+    pub collisions_on : bool,
 }
 
 impl Default for VerletPhysicsProperties {
@@ -13,7 +15,8 @@ impl Default for VerletPhysicsProperties {
             friction: 0.97, // 3% energy is lost
             ground_friction: 0.9, // 30% energy is lost
             gravity: Vec2::UP,
-            floor_height : 720.0
+            floor_height : 720.0,
+            collisions_on: false
         }
     }
 }

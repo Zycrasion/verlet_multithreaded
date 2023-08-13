@@ -86,7 +86,7 @@ impl Node {
         };
 
         graphics.draw_circle(self.pos, self.radius, stroke_colour);
-        graphics.draw_circle(self.pos, self.radius - 2.0, fill_colour)
+        graphics.draw_circle(self.pos, self.radius - 5.0, fill_colour)
     }
 
     pub fn update_pos(&mut self, pos: Vec2) {

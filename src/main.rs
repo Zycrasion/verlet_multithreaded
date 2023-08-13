@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    sync::{mpsc::channel, Arc, Mutex},
+    time::{Duration, SystemTime},
+};
 
 use speedy2d::{
     color::Color,
@@ -14,6 +17,8 @@ use verlet_multithreaded::{
     Node::Node,
 };
 
+use rayon::{prelude::*, ThreadPoolBuilder};
+
 const BYTES: &[u8] = include_bytes!("../res/font.ttf");
 
 struct Verlet {
@@ -22,7 +27,7 @@ struct Verlet {
     font: Font,
     last_run_time: SystemTime,
     mouse_pos: Vec2,
-    grabbed_node : usize
+    grabbed_node: usize,
 }
 
 impl Default for Verlet {
@@ -33,7 +38,7 @@ impl Default for Verlet {
             nodes: Default::default(),
             font: Font::new(BYTES).unwrap(),
             last_run_time: SystemTime::now(),
-            grabbed_node : usize::MAX,
+            grabbed_node: usize::MAX,
         }
     }
 }
@@ -54,8 +59,10 @@ fn main() {
 
     let mut verlet = Verlet::default();
 
-    for i in 0..20 {
-        let x = WIDTH / 20.0;
+    let nodes = 12_500;
+
+    for i in 0..nodes {
+        let x = WIDTH / nodes as f32;
         verlet.nodes.push(Node::new(i as f32 * x, i as f32 * x))
     }
 
@@ -64,15 +71,11 @@ fn main() {
     win.run_loop(verlet);
 }
 
-impl Verlet
-{
-    pub fn get_mouse_grabbed(&mut self) -> Option<&mut Node>
-    {
-        if self.grabbed_node < self.nodes.len()
-        {
+impl Verlet {
+    pub fn get_mouse_grabbed(&mut self) -> Option<&mut Node> {
+        if self.grabbed_node < self.nodes.len() {
             Some(&mut self.nodes[self.grabbed_node])
-        } else 
-        {
+        } else {
             None
         }
     }
@@ -96,25 +99,33 @@ impl WindowHandler for Verlet {
 
         let pos = self.mouse_pos;
 
-        if let Some(grabbed) = self.get_mouse_grabbed()
-        {
+        if let Some(grabbed) = self.get_mouse_grabbed() {
             grabbed.update_pos(pos);
         }
 
-        
-        for i in 0..self.nodes.len() {
-            let node = &mut self.nodes[i];
-            node.update(&self.phys_properties);
-            node.constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
-        }
+        // for i in 0..self.nodes.len()
+        // {
+        //     self.nodes[i].update(&self.phys_properties);
+        //     self.nodes[i].constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
+        // }
 
-        Node::collision_check(&mut self.nodes);
+        self.nodes = self.nodes.clone()
+            .into_par_iter()
+            .map(|mut x| {
+                x.update(&self.phys_properties);
+                x.constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
+                x
+            })
+            .collect::<Vec<_>>();
 
-        for node in &self.nodes
-        {
+        for node in &self.nodes {
             node.draw(graphics);
         }
-        
+
+        if self.phys_properties.collisions_on {
+            Node::collision_check(&mut self.nodes);
+        }
+
         let now = SystemTime::now();
 
         let dt = now
@@ -136,19 +147,21 @@ impl WindowHandler for Verlet {
         helper.request_redraw();
     }
 
-    fn on_mouse_move(&mut self, helper: &mut speedy2d::window::WindowHelper<()>, position: speedy2d::dimen::Vec2) {
+    fn on_mouse_move(
+        &mut self,
+        helper: &mut speedy2d::window::WindowHelper<()>,
+        position: speedy2d::dimen::Vec2,
+    ) {
         self.mouse_pos = position.into();
     }
 
     fn on_mouse_button_up(
-            &mut self,
-            helper: &mut speedy2d::window::WindowHelper<()>,
-            button: MouseButton
-        ) {
-        if button == MouseButton::Left
-        {
-            if let Some(grabbed) = self.get_mouse_grabbed()
-            {
+        &mut self,
+        helper: &mut speedy2d::window::WindowHelper<()>,
+        button: MouseButton,
+    ) {
+        if button == MouseButton::Left {
+            if let Some(grabbed) = self.get_mouse_grabbed() {
                 grabbed.dont_update = false;
             }
             self.grabbed_node = usize::MAX;
@@ -161,23 +174,20 @@ impl WindowHandler for Verlet {
         button: speedy2d::window::MouseButton,
     ) {
         if button == MouseButton::Right {
-            if let Some(grabbed) = self.get_mouse_grabbed()
-            {
+            if let Some(grabbed) = self.get_mouse_grabbed() {
                 grabbed.anchor = !grabbed.anchor;
             }
         }
 
         if button == MouseButton::Left {
             let mut lowest_dist = f32::MAX;
-            let mut closest_node : usize = usize::MAX;
+            let mut closest_node: usize = usize::MAX;
 
             let mut index = 0;
 
-            for node in &self.nodes
-            {
+            for node in &self.nodes {
                 let dist = node.pos.dist(&self.mouse_pos);
-                if dist <= node.radius && dist <= lowest_dist
-                {
+                if dist <= node.radius && dist <= lowest_dist {
                     lowest_dist = dist;
                     closest_node = index;
                 }
@@ -185,8 +195,7 @@ impl WindowHandler for Verlet {
             }
 
             self.grabbed_node = closest_node;
-            if let Some(grabbed) = self.get_mouse_grabbed()
-            {
+            if let Some(grabbed) = self.get_mouse_grabbed() {
                 grabbed.dont_update = true;
             }
         }
@@ -202,13 +211,13 @@ impl WindowHandler for Verlet {
             match key {
                 VirtualKeyCode::Escape => helper.terminate_loop(),
                 VirtualKeyCode::LShift => {
-                    for node in &mut self.nodes
-                    {
+                    for node in &mut self.nodes {
                         node.repel(self.mouse_pos);
                     }
                 }
                 VirtualKeyCode::N => {
-                    self.nodes.push(Node::new(self.mouse_pos.0, self.mouse_pos.1));
+                    self.nodes
+                        .push(Node::new(self.mouse_pos.0, self.mouse_pos.1));
                 }
                 _ => {}
             }
