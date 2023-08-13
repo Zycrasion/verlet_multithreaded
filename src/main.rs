@@ -101,15 +101,20 @@ impl WindowHandler for Verlet {
             grabbed.update_pos(pos);
         }
 
-        Node::collision_check(&mut self.nodes);
-
+        
         for i in 0..self.nodes.len() {
             let node = &mut self.nodes[i];
             node.update(&self.phys_properties);
             node.constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
-            node.draw(graphics);
         }
 
+        Node::collision_check(&mut self.nodes);
+
+        for node in &self.nodes
+        {
+            node.draw(graphics);
+        }
+        
         let now = SystemTime::now();
 
         let dt = now

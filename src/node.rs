@@ -16,7 +16,7 @@ impl Node {
         Self {
             pos: Vec2(x, y),
             old_pos: Vec2(x, y),
-            radius: 5.0,
+            radius: 20.0,
             dont_update: false,
             anchor: false,
             mass : 1.0,
@@ -32,40 +32,63 @@ impl Node {
     }
 
     pub fn collision_check(nodes: &mut Vec<Node>) {
-        for i1 in 0..nodes.len() {
-            for i2 in 0..nodes.len() {
-                if i1 == i2 {
-                    continue;
-                }
+        for _ in 0..1000
+        {
+            for i1 in 0..nodes.len() {
+                for i2 in 0..nodes.len() {
+                    if i1 == i2 {
+                        continue;
+                    }
+    
+                    let dist = nodes[i1].pos.dist(&nodes[i2].pos);
+                    if dist < nodes[i1].radius + nodes[i2].radius
+                    {
+                        let m_total = nodes[i1].mass + nodes[i2].mass;
+                        let mut m = nodes[i1].mass / m_total;
+    
+                        if nodes[i1].anchor || nodes[i1].dont_update { m = 0.0; }
+                        if nodes[i2].anchor || nodes[i2].dont_update { m = 1.0; }
+                        let mut dist_needed = (nodes[i1].pos - nodes[i2].pos).normalized();
+                        if (nodes[i2].anchor || nodes[i2].dont_update) && (nodes[i1].anchor || nodes[i1].dont_update) {dist_needed = Vec2::ZERO}
 
-                let dist = nodes[i1].pos.dist(&nodes[i2].pos);
-                if dist < nodes[i1].radius.max(nodes[i2].radius) * 2.0
-                {
-                    let m_total = nodes[i1].mass + nodes[i2].mass;
-                    let mut m1 = nodes[i1].mass / m_total;
-                    let mut m2 = nodes[i2].mass / m_total;
-
-                    if nodes[i1].anchor || nodes[i1].dont_update { m2 = 0.0; m1 = 1.0; }
-                    if nodes[i2].anchor || nodes[i2].dont_update { m1 = 0.0; m2 = 1.0; }
-
-                    let dist_needed = nodes[i1].pos - nodes[i2].pos;
-
-                    let n1 = nodes[i1].pos;
-                    nodes[i1].update_pos(n1 + dist_needed * m2);
-                    let n2 = nodes[i2].pos;
-                    nodes[i2].update_pos(n2 - dist_needed * m1);
+                        let n1 = nodes[i1].pos;
+                        nodes[i1].update_pos_no_vel(n1 + (dist_needed * m));
+                        let n2 = nodes[i2].pos;
+                        nodes[i2].update_pos_no_vel(n2 - (dist_needed * (1.0 - m)));
+                    }
                 }
             }
         }
     }
 
     pub fn draw(&self, graphics: &mut Graphics2D) {
-        graphics.draw_circle(self.pos, self.radius, Color::GRAY);
-        graphics.draw_circle(self.pos, self.radius - 2.0, Color::WHITE)
+
+        let stroke_colour = if self.anchor
+        {
+            Color::from_hex_rgb(0x1d3658)
+        } else
+        {
+            Color::GRAY
+        };
+
+        let fill_colour = if self.anchor
+        {
+            Color::from_hex_rgb(0x447a9c)
+        } else 
+        {
+            Color::WHITE
+        };
+
+        graphics.draw_circle(self.pos, self.radius, stroke_colour);
+        graphics.draw_circle(self.pos, self.radius - 2.0, fill_colour)
     }
 
     pub fn update_pos(&mut self, pos: Vec2) {
         self.old_pos = self.pos;
+        self.pos = pos;
+    }
+
+    pub fn update_pos_no_vel(&mut self, pos: Vec2) {
         self.pos = pos;
     }
 
