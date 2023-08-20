@@ -1,4 +1,4 @@
-use crate::maths::Vec2;
+use vecto_rs::Vec2;
 
 #[derive(Clone, Copy, Debug)]
 pub struct VerletPhysicsProperties {
@@ -13,7 +13,7 @@ impl Default for VerletPhysicsProperties {
     fn default() -> Self {
         Self {
             friction: 0.97, // 3% energy is lost
-            ground_friction: 0.9, // 30% energy is lost
+            ground_friction: 0.7, // 30% energy is lost
             gravity: Vec2::UP,
             floor_height : 720.0,
             collisions_on: true

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 rayon = "1.7.0"
 speedy2d = "1.12.0"
+vecto-rs = { git = "https://github.com/Zycrasion/vecto-rs", version = "0.2.1" }

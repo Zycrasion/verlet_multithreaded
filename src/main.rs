@@ -12,10 +12,11 @@ use speedy2d::{
 };
 use verlet_multithreaded::{
     consts::{HEIGHT, WIDTH},
-    maths::Vec2,
     physics::VerletPhysicsProperties,
     Node::Node,
 };
+
+use vecto_rs::Vec2;
 
 use rayon::{prelude::*, ThreadPoolBuilder};
 
@@ -152,7 +153,7 @@ impl WindowHandler for Verlet {
         helper: &mut speedy2d::window::WindowHelper<()>,
         position: speedy2d::dimen::Vec2,
     ) {
-        self.mouse_pos = position.into();
+        self.mouse_pos = Vec2(position.x, position.y);
     }
 
     fn on_mouse_button_up(

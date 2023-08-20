@@ -1,5 +1,6 @@
-use crate::{maths::Vec2, physics::VerletPhysicsProperties};
+use crate::{physics::VerletPhysicsProperties, to_vector2};
 use speedy2d::{color::Color, Graphics2D};
+use vecto_rs::Vec2;
 
 #[derive(Copy, Clone)]
 pub struct Node {
@@ -80,8 +81,8 @@ impl Node {
             Color::WHITE
         };
 
-        graphics.draw_circle(self.pos, self.radius, stroke_colour);
-        graphics.draw_circle(self.pos, self.radius - 5.0, fill_colour)
+        graphics.draw_circle(to_vector2(self.pos), self.radius, stroke_colour);
+        graphics.draw_circle(to_vector2(self.pos), self.radius - 5.0, fill_colour)
     }
 
     pub fn update_pos(&mut self, pos: Vec2) {
