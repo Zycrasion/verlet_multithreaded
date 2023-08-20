@@ -59,7 +59,7 @@ fn main() {
 
     let mut verlet = Verlet::default();
 
-    let nodes = 12_500;
+    let nodes = 1;
 
     for i in 0..nodes {
         let x = WIDTH / nodes as f32;

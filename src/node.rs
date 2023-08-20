@@ -28,40 +28,35 @@ impl Node {
             return;
         }
 
-        self.pos = pos + ((self.pos - pos).normalized());
+        self.pos = pos - (self.pos - pos).normalized() / pos.dist(&self.pos);
     }
 
     pub fn collision_check(nodes: &mut Vec<Node>) {
-        for _ in 0..100
-        {
-            for i1 in 0..nodes.len() {
-                for i2 in 0..nodes.len() {
-                    if i1 == i2 {
-                        continue;
-                    }
-    
-                    let dist = nodes[i1].pos.dist(&nodes[i2].pos);
-                    if dist < nodes[i1].radius + nodes[i2].radius
-                    {
-                        let m_total = nodes[i1].mass + nodes[i2].mass;
-                        let mut m = nodes[i1].mass / m_total;
-    
-                        if nodes[i1].anchor || nodes[i1].dont_update { m = 0.0; }
-                        if nodes[i2].anchor || nodes[i2].dont_update { m = 1.0; }
-                        let mut dist_needed = (nodes[i1].pos - nodes[i2].pos).normalized();
-                        if (nodes[i2].anchor || nodes[i2].dont_update) && (nodes[i1].anchor || nodes[i1].dont_update) {dist_needed = Vec2::ZERO}
+        for i1 in 0..nodes.len() {
+            for i2 in 0..nodes.len() {
+                if i1 == i2 {
+                    continue;
+                }
 
-                        let n1 = nodes[i1].pos;
-                        nodes[i1].update_pos_no_vel(n1 + (dist_needed * m));
-                        let n2 = nodes[i2].pos;
-                        nodes[i2].update_pos_no_vel(n2 - (dist_needed * (1.0 - m)));
-                    }
+                let dist = nodes[i1].pos.dist(&nodes[i2].pos);
+                if dist <= nodes[i1].radius + nodes[i2].radius
+                {
+                    let n = (nodes[i2].pos - nodes[i1].pos).normalized();
 
-                    if dist == 0.0
-                    {
-                        nodes[i1].update_pos(Vec2(100.0, 100.0));
-                        nodes[i2].update_pos(Vec2(200.0, 200.0));
-                    }
+                    let dist_from_n1 = dist * (nodes[i1].radius / (nodes[i1].radius + nodes[i2].radius));
+
+                    let c = nodes[i1].pos + n * dist_from_n1;
+
+                    let n1_r = nodes[i1].radius;
+                    nodes[i1].update_pos_no_vel(c - n * n1_r);
+                    let n2_r = nodes[i2].radius;
+                    nodes[i2].update_pos_no_vel(c + n * n2_r);
+                }
+
+                if dist == 0.0
+                {
+                    nodes[i1].update_pos(Vec2(100.0, 100.0));
+                    nodes[i2].update_pos(Vec2(200.0, 200.0));
                 }
             }
         }
@@ -99,6 +94,11 @@ impl Node {
     }
 
     pub fn update(&mut self, phys: &VerletPhysicsProperties) {
+        if !self.pos.0.is_normal() || !self.pos.0.is_normal() 
+        {
+            self.dont_update = true;
+        }
+
         if self.dont_update || self.anchor {
             return;
         }

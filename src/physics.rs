@@ -16,7 +16,7 @@ impl Default for VerletPhysicsProperties {
             ground_friction: 0.9, // 30% energy is lost
             gravity: Vec2::UP,
             floor_height : 720.0,
-            collisions_on: false
+            collisions_on: true
         }
     }
 }
