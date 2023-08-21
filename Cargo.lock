@@ -1284,8 +1284,8 @@ dependencies = [
 
 [[package]]
 name = "vecto-rs"
-version = "0.3.0"
-source = "git+https://github.com/Zycrasion/vecto-rs#70368d954f6a63ed309dcac9997440d43d4d2be8"
+version = "0.5.0"
+source = "git+https://github.com/Zycrasion/vecto-rs#0892ee82751d43d1f95e60257bfc064cf77781e8"
 
 [[package]]
 name = "verlet_multithreaded"
