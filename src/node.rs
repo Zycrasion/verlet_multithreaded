@@ -1,8 +1,10 @@
+use std::{sync::Arc, rc::Rc, ops::Deref, cell::RefCell};
+
 use crate::{physics::VerletPhysicsProperties, to_vector2};
 use speedy2d::{color::Color, Graphics2D};
-use vecto_rs::Vec2;
+use vecto_rs::{Vec2, QuadTree};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Node {
     pub pos: Vec2,
     pub old_pos: Vec2,
@@ -32,35 +34,37 @@ impl Node {
         self.pos = pos - (self.pos - pos).normalized() / pos.dist(&self.pos);
     }
 
-    pub fn collision_check(nodes: &mut Vec<Node>) {
+    pub fn collision_check(nodes: &mut Vec<Arc<RefCell<Node>>>, mut tree: QuadTree<Arc<RefCell<Node>>>) ->  QuadTree<Arc<RefCell<Node>>> {
         for i1 in 0..nodes.len() {
-            for i2 in 0..nodes.len() {
-                if i1 == i2 {
+            for i2 in tree.query(nodes[i1].borrow().pos) {
+                if nodes[i1].deref() == i2.1.deref() {
                     continue;
                 }
 
-                let dist = nodes[i1].pos.dist(&nodes[i2].pos);
-                if dist <= nodes[i1].radius + nodes[i2].radius
+                let dist = nodes[i1].borrow().pos.dist(&i2.1.borrow().pos);
+                if dist <= nodes[i1].borrow().radius + i2.1.borrow().radius
                 {
-                    let n = (nodes[i2].pos - nodes[i1].pos).normalized();
+                    let n = (i2.1.borrow().pos - nodes[i1].borrow().pos).normalized();
 
-                    let dist_from_n1 = dist * (nodes[i1].radius / (nodes[i1].radius + nodes[i2].radius));
+                    let dist_from_n1 = dist * (nodes[i1].borrow().radius / (nodes[i1].borrow().radius + i2.1.borrow().radius));
 
-                    let c = nodes[i1].pos + n * dist_from_n1;
+                    let c = nodes[i1].borrow().pos + n * dist_from_n1;
 
-                    let n1_r = nodes[i1].radius;
-                    nodes[i1].update_pos_no_vel(c - n * n1_r);
-                    let n2_r = nodes[i2].radius;
-                    nodes[i2].update_pos_no_vel(c + n * n2_r);
+                    let n1_r = nodes[i1].borrow().radius;
+                    nodes[i1].borrow_mut().update_pos_no_vel(c - n * n1_r);
+                    let n2_r = i2.1.borrow().radius;
+                    i2.1.borrow_mut().update_pos_no_vel(c + n * n2_r);
                 }
 
                 if dist == 0.0
                 {
-                    nodes[i1].update_pos(Vec2(100.0, 100.0));
-                    nodes[i2].update_pos(Vec2(200.0, 200.0));
+                    nodes[i1].borrow_mut().update_pos(Vec2(100.0, 100.0));
+                    i2.1.borrow_mut().update_pos(Vec2(200.0, 200.0));
                 }
             }
         }
+
+        tree
     }
 
     pub fn draw(&self, graphics: &mut Graphics2D) {

@@ -1,6 +1,6 @@
 use std::{
     sync::{mpsc::channel, Arc, Mutex},
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime}, cell::RefCell, borrow::BorrowMut,
 };
 
 use speedy2d::{
@@ -16,7 +16,7 @@ use verlet_multithreaded::{
     Node::Node,
 };
 
-use vecto_rs::Vec2;
+use vecto_rs::{Vec2, QuadTree};
 
 use rayon::{prelude::*, ThreadPoolBuilder};
 
@@ -24,7 +24,8 @@ const BYTES: &[u8] = include_bytes!("../res/font.ttf");
 
 struct Verlet {
     phys_properties: VerletPhysicsProperties,
-    nodes: Vec<Node>,
+    nodes: Vec<Arc<RefCell<Node>>>,
+    tree : QuadTree<Arc<RefCell<Node>>>,
     font: Font,
     last_run_time: SystemTime,
     mouse_pos: Vec2,
@@ -37,6 +38,7 @@ impl Default for Verlet {
             mouse_pos: Vec2::ZERO,
             phys_properties: Default::default(),
             nodes: Default::default(),
+            tree: QuadTree::new(0.0,0.0,WIDTH, HEIGHT, 10),
             font: Font::new(BYTES).unwrap(),
             last_run_time: SystemTime::now(),
             grabbed_node: usize::MAX,
@@ -64,7 +66,7 @@ fn main() {
 
     for i in 0..nodes {
         let x = WIDTH / nodes as f32;
-        verlet.nodes.push(Node::new(i as f32 * x, i as f32 * x))
+        verlet.add_node(Node::new(i as f32 * x, i as f32 * x))
     }
 
     verlet.phys_properties.floor_height = HEIGHT;
@@ -75,10 +77,19 @@ fn main() {
 impl Verlet {
     pub fn get_mouse_grabbed(&mut self) -> Option<&mut Node> {
         if self.grabbed_node < self.nodes.len() {
-            Some(&mut self.nodes[self.grabbed_node])
+            Some(self.nodes[self.grabbed_node].get_mut())
         } else {
             None
         }
+    }
+
+    pub fn add_node(&mut self, node: Node)
+    {
+        let a1 = Arc::new(RefCell::new(node));
+        let a2 = a1.clone();
+
+        self.nodes.push(a1);
+        self.tree.add(a2, a2.borrow().pos);
     }
 }
 
@@ -104,27 +115,18 @@ impl WindowHandler for Verlet {
             grabbed.update_pos(pos);
         }
 
-        // for i in 0..self.nodes.len()
-        // {
-        //     self.nodes[i].update(&self.phys_properties);
-        //     self.nodes[i].constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
-        // }
-
-        self.nodes = self.nodes.clone()
-            .into_par_iter()
-            .map(|mut x| {
-                x.update(&self.phys_properties);
-                x.constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
-                x
-            })
-            .collect::<Vec<_>>();
+        for i in 0..self.nodes.len()
+        {
+            self.nodes[i].borrow().update(&self.phys_properties);
+            self.nodes[i].constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
+        }
 
         for node in &self.nodes {
-            node.draw(graphics);
+            node.borrow().draw(graphics);
         }
 
         if self.phys_properties.collisions_on {
-            Node::collision_check(&mut self.nodes);
+            Node::collision_check(&mut self.nodes, self.tree);
         }
 
         let now = SystemTime::now();
@@ -187,8 +189,8 @@ impl WindowHandler for Verlet {
             let mut index = 0;
 
             for node in &self.nodes {
-                let dist = node.pos.dist(&self.mouse_pos);
-                if dist <= node.radius && dist <= lowest_dist {
+                let dist = node.borrow().pos.dist(&self.mouse_pos);
+                if dist <= node.borrow().radius && dist <= lowest_dist {
                     lowest_dist = dist;
                     closest_node = index;
                 }
@@ -212,13 +214,10 @@ impl WindowHandler for Verlet {
             match key {
                 VirtualKeyCode::Escape => helper.terminate_loop(),
                 VirtualKeyCode::LShift => {
-                    for node in &mut self.nodes {
-                        node.repel(self.mouse_pos);
-                    }
+
                 }
                 VirtualKeyCode::N => {
-                    self.nodes
-                        .push(Node::new(self.mouse_pos.0, self.mouse_pos.1));
+                    self.add_node(Node::new(self.mouse_pos.0, self.mouse_pos.1));
                 }
                 _ => {}
             }
