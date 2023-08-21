@@ -1,6 +1,6 @@
 use std::{
     sync::{mpsc::channel, Arc, Mutex},
-    time::{Duration, SystemTime}, cell::RefCell, borrow::BorrowMut,
+    time::{Duration, SystemTime}, cell::RefCell, borrow::BorrowMut, ops::Deref,
 };
 
 use speedy2d::{
@@ -75,9 +75,9 @@ fn main() {
 }
 
 impl Verlet {
-    pub fn get_mouse_grabbed(&mut self) -> Option<&mut Node> {
+    pub fn get_mouse_grabbed(&mut self) -> Option<Arc<RefCell<Node>>> {
         if self.grabbed_node < self.nodes.len() {
-            Some(self.nodes[self.grabbed_node].get_mut())
+            Some(self.nodes[self.grabbed_node].clone())
         } else {
             None
         }
@@ -89,7 +89,8 @@ impl Verlet {
         let a2 = a1.clone();
 
         self.nodes.push(a1);
-        self.tree.add(a2, a2.borrow().pos);
+        let pos = a2.borrow().pos.clone();
+        self.tree.add(a2, pos);
     }
 }
 
@@ -112,13 +113,13 @@ impl WindowHandler for Verlet {
         let pos = self.mouse_pos;
 
         if let Some(grabbed) = self.get_mouse_grabbed() {
-            grabbed.update_pos(pos);
+            grabbed.deref().borrow_mut().update_pos(pos);
         }
 
-        for i in 0..self.nodes.len()
+        for node in &self.nodes
         {
-            self.nodes[i].borrow().update(&self.phys_properties);
-            self.nodes[i].constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
+            node.deref().borrow_mut().update(&self.phys_properties);
+            node.deref().borrow_mut().constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
         }
 
         for node in &self.nodes {
@@ -126,7 +127,7 @@ impl WindowHandler for Verlet {
         }
 
         if self.phys_properties.collisions_on {
-            Node::collision_check(&mut self.nodes, self.tree);
+            Node::collision_check(&mut self.nodes, &mut self.tree);
         }
 
         let now = SystemTime::now();
@@ -165,7 +166,7 @@ impl WindowHandler for Verlet {
     ) {
         if button == MouseButton::Left {
             if let Some(grabbed) = self.get_mouse_grabbed() {
-                grabbed.dont_update = false;
+                grabbed.deref().borrow_mut().dont_update = false;
             }
             self.grabbed_node = usize::MAX;
         }
@@ -178,7 +179,7 @@ impl WindowHandler for Verlet {
     ) {
         if button == MouseButton::Right {
             if let Some(grabbed) = self.get_mouse_grabbed() {
-                grabbed.anchor = !grabbed.anchor;
+                grabbed.deref().borrow_mut().anchor = !grabbed.deref().borrow_mut().anchor;
             }
         }
 
@@ -199,7 +200,7 @@ impl WindowHandler for Verlet {
 
             self.grabbed_node = closest_node;
             if let Some(grabbed) = self.get_mouse_grabbed() {
-                grabbed.dont_update = true;
+                grabbed.deref().borrow_mut().dont_update = true;
             }
         }
     }

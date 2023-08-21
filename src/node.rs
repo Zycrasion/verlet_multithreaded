@@ -34,7 +34,8 @@ impl Node {
         self.pos = pos - (self.pos - pos).normalized() / pos.dist(&self.pos);
     }
 
-    pub fn collision_check(nodes: &mut Vec<Arc<RefCell<Node>>>, mut tree: QuadTree<Arc<RefCell<Node>>>) ->  QuadTree<Arc<RefCell<Node>>> {
+    pub fn collision_check(nodes: &mut Vec<Arc<RefCell<Node>>>, tree: &mut QuadTree<Arc<RefCell<Node>>>)
+    {
         for i1 in 0..nodes.len() {
             for i2 in tree.query(nodes[i1].borrow().pos) {
                 if nodes[i1].deref() == i2.1.deref() {
@@ -63,8 +64,6 @@ impl Node {
                 }
             }
         }
-
-        tree
     }
 
     pub fn draw(&self, graphics: &mut Graphics2D) {
