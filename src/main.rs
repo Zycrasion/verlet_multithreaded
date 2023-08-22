@@ -30,6 +30,7 @@ struct Verlet {
     mouse_pos: Vec2,
     grabbed_node: usize,
     f : f32,
+    auto_fill: bool
 }
 
 impl Default for Verlet {
@@ -41,7 +42,8 @@ impl Default for Verlet {
             font: Font::new(BYTES).unwrap(),
             last_run_time: SystemTime::now(),
             grabbed_node: usize::MAX,
-            f: 0.0
+            f: 0.0,
+            auto_fill : true
         }
     }
 }
@@ -100,20 +102,23 @@ impl WindowHandler for Verlet {
 
         self.f += 2.0;
 
-        let mut n = Node::new(1.0,1.0);
-        n.old_pos = n.pos - 4.0;
-        n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
-        self.add_node(n);
+        if self.auto_fill
+        {
+            let mut n = Node::new(1.0,1.0);
+            n.old_pos = n.pos - 0.1;
+            n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
+            self.add_node(n);
 
-        let mut n = Node::new(20.0,1.0);
-        n.old_pos = n.pos - 4.0;
-        n.colour = (((self.f) / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
-        self.add_node(n);
+            let mut n = Node::new(20.0,1.0);
+            n.old_pos = n.pos - 0.1;
+            n.colour = (((self.f) / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
+            self.add_node(n);
 
-        let mut n = Node::new(40.0,1.0);
-        n.old_pos = n.pos - 4.0;
-        n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
-        self.add_node(n);
+            let mut n = Node::new(1.0,20.0);
+            n.old_pos = n.pos - 0.1;
+            n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
+            self.add_node(n);
+        }
 
         for x in ((WIDTH as i32 / 10)..WIDTH as i32).step_by(WIDTH as usize / 10) {
             graphics.draw_line((x as f32, 0.0), (x as f32, HEIGHT), 1.0, Color::WHITE)
@@ -229,6 +234,9 @@ impl WindowHandler for Verlet {
                 VirtualKeyCode::Escape => helper.terminate_loop(),
                 VirtualKeyCode::LShift => {
 
+                }
+                VirtualKeyCode::Space => {
+                    self.auto_fill = !self.auto_fill;
                 }
                 VirtualKeyCode::N => {
                     self.add_node(Node::new(self.mouse_pos.0, self.mouse_pos.1));
