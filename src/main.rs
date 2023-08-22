@@ -13,7 +13,7 @@ use speedy2d::{
 use verlet_multithreaded::{
     consts::{HEIGHT, WIDTH},
     physics::VerletPhysicsProperties,
-    Node::Node,
+    node::Node,
 };
 
 use vecto_rs::{Vec2, QuadTree};

@@ -3,8 +3,7 @@ use vecto_rs::Vec2;
 
 pub mod consts;
 pub mod physics;
-#[allow(non_snake_case)]
-pub mod Node; // I have no clue why rust recognises this as a valid module name
+pub mod node;
 
 pub fn to_vector2(a : Vec2) -> Vector2<f32>
 {

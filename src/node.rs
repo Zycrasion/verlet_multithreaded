@@ -37,7 +37,7 @@ impl Node {
 
     pub fn collision_check(nodes: &mut Vec<Node>)
     {
-        let mut tree = QuadTree::new(0.0,0.0, WIDTH, HEIGHT, 10);
+        let mut tree = QuadTree::new(0.0,0.0, WIDTH, HEIGHT, 100, 100.0);
         for i in 0..nodes.len()
         {
             tree.add(i, nodes[i].pos);
@@ -128,6 +128,11 @@ impl Node {
     }
 
     pub fn constrain(&mut self, min: Vec2, max: Vec2) {
+        let a  = self.pos.clone();
         self.pos = self.pos.clamp(min + self.radius, max - self.radius);
+        if a != self.pos
+        {
+            self.old_pos = a;
+        }
     }
 }
