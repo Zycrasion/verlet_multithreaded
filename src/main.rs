@@ -24,8 +24,7 @@ const BYTES: &[u8] = include_bytes!("../res/font.ttf");
 
 struct Verlet {
     phys_properties: VerletPhysicsProperties,
-    nodes: Vec<Arc<RefCell<Node>>>,
-    tree : QuadTree<Arc<RefCell<Node>>>,
+    nodes: Vec<Node>,
     font: Font,
     last_run_time: SystemTime,
     mouse_pos: Vec2,
@@ -38,7 +37,6 @@ impl Default for Verlet {
             mouse_pos: Vec2::ZERO,
             phys_properties: Default::default(),
             nodes: Default::default(),
-            tree: QuadTree::new(0.0,0.0,WIDTH, HEIGHT, 10),
             font: Font::new(BYTES).unwrap(),
             last_run_time: SystemTime::now(),
             grabbed_node: usize::MAX,
@@ -75,9 +73,9 @@ fn main() {
 }
 
 impl Verlet {
-    pub fn get_mouse_grabbed(&mut self) -> Option<Arc<RefCell<Node>>> {
+    pub fn get_mouse_grabbed(&mut self) -> Option<&mut Node> {
         if self.grabbed_node < self.nodes.len() {
-            Some(self.nodes[self.grabbed_node].clone())
+            Some(&mut self.nodes[self.grabbed_node])
         } else {
             None
         }
@@ -85,12 +83,8 @@ impl Verlet {
 
     pub fn add_node(&mut self, node: Node)
     {
-        let a1 = Arc::new(RefCell::new(node));
-        let a2 = a1.clone();
-
+        let a1 = node;
         self.nodes.push(a1);
-        let pos = a2.borrow().pos.clone();
-        self.tree.add(a2, pos);
     }
 }
 
@@ -113,21 +107,21 @@ impl WindowHandler for Verlet {
         let pos = self.mouse_pos;
 
         if let Some(grabbed) = self.get_mouse_grabbed() {
-            grabbed.deref().borrow_mut().update_pos(pos);
+            grabbed.update_pos(pos);
         }
 
-        for node in &self.nodes
+        for node in &mut self.nodes
         {
-            node.deref().borrow_mut().update(&self.phys_properties);
-            node.deref().borrow_mut().constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
+            node.update(&self.phys_properties);
+            node.constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
         }
 
         for node in &self.nodes {
-            node.borrow().draw(graphics);
+            node.draw(graphics);
         }
 
         if self.phys_properties.collisions_on {
-            Node::collision_check(&mut self.nodes, &mut self.tree);
+            Node::collision_check(&mut self.nodes);
         }
 
         let now = SystemTime::now();
@@ -166,7 +160,7 @@ impl WindowHandler for Verlet {
     ) {
         if button == MouseButton::Left {
             if let Some(grabbed) = self.get_mouse_grabbed() {
-                grabbed.deref().borrow_mut().dont_update = false;
+                grabbed.dont_update = false;
             }
             self.grabbed_node = usize::MAX;
         }
@@ -179,7 +173,7 @@ impl WindowHandler for Verlet {
     ) {
         if button == MouseButton::Right {
             if let Some(grabbed) = self.get_mouse_grabbed() {
-                grabbed.deref().borrow_mut().anchor = !grabbed.deref().borrow_mut().anchor;
+                grabbed.anchor = !grabbed.anchor;
             }
         }
 
@@ -190,8 +184,8 @@ impl WindowHandler for Verlet {
             let mut index = 0;
 
             for node in &self.nodes {
-                let dist = node.borrow().pos.dist(&self.mouse_pos);
-                if dist <= node.borrow().radius && dist <= lowest_dist {
+                let dist = node.pos.dist(&self.mouse_pos);
+                if dist <= node.radius && dist <= lowest_dist {
                     lowest_dist = dist;
                     closest_node = index;
                 }
@@ -200,7 +194,7 @@ impl WindowHandler for Verlet {
 
             self.grabbed_node = closest_node;
             if let Some(grabbed) = self.get_mouse_grabbed() {
-                grabbed.deref().borrow_mut().dont_update = true;
+                grabbed.dont_update = true;
             }
         }
     }
