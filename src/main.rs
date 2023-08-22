@@ -1,6 +1,4 @@
-use std::{
-    time::{SystemTime},
-};
+use std::time::SystemTime;
 
 use speedy2d::{
     color::Color,
@@ -15,7 +13,7 @@ use verlet_multithreaded::{
     node::Node,
 };
 
-use vecto_rs::{Vec2};
+use vecto_rs::Vec2;
 
 const BYTES: &[u8] = include_bytes!("../res/font.ttf");
 
