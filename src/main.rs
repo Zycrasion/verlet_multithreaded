@@ -1,5 +1,6 @@
-use std::{time::SystemTime, ops::Deref};
+use std::{time::SystemTime, ops::Deref, fs, io::Cursor, thread};
 
+use image::{io::Reader, ImageBuffer, Pixel, Rgb};
 use speedy2d::{
     color::Color,
     dimen::Vector2,
@@ -32,6 +33,8 @@ struct Verlet {
     last_mouse_pos_raw : Vec2,
     mouse_pos_raw: Vec2,
     scale : f32,
+    view_tree : bool,
+    request_capture : bool
 }
 
 impl Default for Verlet {
@@ -51,6 +54,8 @@ impl Default for Verlet {
             mouse_pos_raw : Vec2::ZERO,
             last_mouse_pos_raw : Vec2::ZERO,
             scale : 1.0,
+            view_tree : false,
+            request_capture : false
         }
     }
 }
@@ -163,27 +168,30 @@ impl WindowHandler for Verlet {
 
         if self.phys_properties.collisions_on {
             let tree = Node::collision_check(&mut self.nodes);
-            fn walk(tree : &QuadTree<usize>, graphics: &mut speedy2d::Graphics2D, scale_cam : (f32, Vec2))
+            if self.view_tree
             {
-                if tree.is_leaf()
+                fn walk(tree : &QuadTree<usize>, graphics: &mut speedy2d::Graphics2D, scale_cam : (f32, Vec2))
                 {
-                    draw_aabb(tree.get_bb(), graphics, scale_cam)
-                } else 
-                {
-                    let tl = tree.get_tl();
-                    walk(&tl, graphics, scale_cam);
-
-                    let tr = tree.get_tr();
-                    walk(&tr, graphics, scale_cam);
-
-                    let bl = tree.get_bl();
-                    walk(&bl, graphics, scale_cam);
-
-                    let br = tree.get_br();
-                    walk(&br, graphics, scale_cam);
+                    if tree.is_leaf()
+                    {
+                        draw_aabb(tree.get_bb(), graphics, scale_cam)
+                    } else 
+                    {
+                        let tl = tree.get_tl();
+                        walk(&tl, graphics, scale_cam);
+    
+                        let tr = tree.get_tr();
+                        walk(&tr, graphics, scale_cam);
+    
+                        let bl = tree.get_bl();
+                        walk(&bl, graphics, scale_cam);
+    
+                        let br = tree.get_br();
+                        walk(&br, graphics, scale_cam);
+                    }
                 }
+                walk(&tree, graphics, (self.scale, self.cam_offset));
             }
-            walk(&tree, graphics, (self.scale, self.cam_offset));
         }
 
         let now = SystemTime::now();
@@ -203,6 +211,28 @@ impl WindowHandler for Verlet {
             TextOptions::new(),
         );
         graphics.draw_text((0.0, 0.0), Color::WHITE, &text);
+
+
+        if self.request_capture
+        {
+            let data = graphics.capture(speedy2d::image::ImageDataType::RGB);
+            thread::spawn(move || {                
+                let data = data.data();
+    
+                let mut image2 = ImageBuffer::new(720, 720);
+                
+                for x in 0..720
+                {
+                    for y in 0..720
+                    {
+                        image2.put_pixel(x, y, Rgb([data[((x * 3 + (y * 720 * 3)) + 0) as usize], data[((x * 3 + (y * 720 * 3)) + 1) as usize], data[((x * 3 + (y * 720 * 3)) + 2) as usize]]));
+                    }
+                }
+    
+                image2.save("image.png").unwrap();
+            });
+            self.request_capture = false;
+        }
 
         self.last_mouse_pos = self.mouse_pos;
         self.last_mouse_pos_raw = self.mouse_pos_raw;
@@ -287,6 +317,9 @@ impl WindowHandler for Verlet {
                 VirtualKeyCode::C => {
                     self.nodes.clear();
                 }
+                VirtualKeyCode::V => {
+                    self.view_tree = !self.view_tree;
+                }
                 VirtualKeyCode::Backspace =>
                 {
                     if self.grabbed_node > self.nodes.len()
@@ -298,7 +331,7 @@ impl WindowHandler for Verlet {
                 }
                 VirtualKeyCode::Escape => helper.terminate_loop(),
                 VirtualKeyCode::LShift => {
-
+                    self.request_capture = true;
                 }
                 VirtualKeyCode::Space => {
                     self.auto_fill = !self.auto_fill;
