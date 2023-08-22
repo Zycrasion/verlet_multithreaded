@@ -12,6 +12,7 @@
 -   V - Toggle QuadTree View
 -   N - Add Node
 -   Left Click - Grab Node
+-   Shift - Take Screenshot
 
 ## Performance on Ryzen 5600G
 |Circles| FPS|
