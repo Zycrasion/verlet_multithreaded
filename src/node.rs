@@ -13,6 +13,7 @@ pub struct Node {
     pub mass: f32,
     pub dont_update: bool,
     pub anchor: bool,
+    pub colour: (f32, f32, f32)
 }
 
 impl Node {
@@ -20,10 +21,11 @@ impl Node {
         Self {
             pos: Vec2(x, y),
             old_pos: Vec2(x, y),
-            radius: 20.0,
+            radius: 7.5,
             dont_update: false,
             anchor: false,
             mass : 1.0,
+            colour : (1.0,1.0,1.0)
         }
     }
 
@@ -37,7 +39,7 @@ impl Node {
 
     pub fn collision_check(nodes: &mut Vec<Node>)
     {
-        let mut tree = QuadTree::new(0.0,0.0, WIDTH, HEIGHT, 100, 100.0);
+        let mut tree = QuadTree::new(0.0,0.0, WIDTH, HEIGHT, 50, 20.0, 20);
         for i in 0..nodes.len()
         {
             tree.add(i, nodes[i].pos);
@@ -91,8 +93,10 @@ impl Node {
             Color::WHITE
         };
 
-        graphics.draw_circle(to_vector2(self.pos), self.radius, stroke_colour);
-        graphics.draw_circle(to_vector2(self.pos), self.radius - 5.0, fill_colour)
+        let fill_colour = Color::from_rgb(self.colour.0, self.colour.1.max(0.3), self.colour.2.max(0.3));
+
+        // graphics.draw_circle(to_vector2(self.pos), self.radius, stroke_colour);
+        graphics.draw_circle(to_vector2(self.pos), self.radius, fill_colour)
     }
 
     pub fn update_pos(&mut self, pos: Vec2) {

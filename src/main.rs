@@ -29,6 +29,7 @@ struct Verlet {
     last_run_time: SystemTime,
     mouse_pos: Vec2,
     grabbed_node: usize,
+    f : f32,
 }
 
 impl Default for Verlet {
@@ -40,6 +41,7 @@ impl Default for Verlet {
             font: Font::new(BYTES).unwrap(),
             last_run_time: SystemTime::now(),
             grabbed_node: usize::MAX,
+            f: 0.0
         }
     }
 }
@@ -60,7 +62,7 @@ fn main() {
 
     let mut verlet = Verlet::default();
 
-    let nodes = 1;
+    let nodes = 0;
 
     for i in 0..nodes {
         let x = WIDTH / nodes as f32;
@@ -95,6 +97,23 @@ impl WindowHandler for Verlet {
         graphics: &mut speedy2d::Graphics2D,
     ) {
         graphics.clear_screen(Color::from_hex_rgb(0x0f0e16));
+
+        self.f += 2.0;
+
+        let mut n = Node::new(1.0,1.0);
+        n.old_pos = n.pos - 4.0;
+        n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
+        self.add_node(n);
+
+        let mut n = Node::new(20.0,1.0);
+        n.old_pos = n.pos - 4.0;
+        n.colour = (((self.f) / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
+        self.add_node(n);
+
+        let mut n = Node::new(40.0,1.0);
+        n.old_pos = n.pos - 4.0;
+        n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
+        self.add_node(n);
 
         for x in ((WIDTH as i32 / 10)..WIDTH as i32).step_by(WIDTH as usize / 10) {
             graphics.draw_line((x as f32, 0.0), (x as f32, HEIGHT), 1.0, Color::WHITE)
