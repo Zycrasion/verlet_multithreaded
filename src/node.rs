@@ -21,7 +21,7 @@ impl Node {
         Self {
             pos: Vec2(x, y),
             old_pos: Vec2(x, y),
-            radius: 5.0,
+            radius: 20.0,
             dont_update: false,
             anchor: false,
             mass : 1.0,
@@ -37,9 +37,9 @@ impl Node {
         self.pos = pos - (self.pos - pos).normalized() / pos.dist(&self.pos);
     }
 
-    pub fn collision_check(nodes: &mut Vec<Node>)
+    pub fn collision_check(nodes: &mut Vec<Node>) -> QuadTree<usize>
     {
-        let mut tree = QuadTree::new(0.0,0.0, WIDTH, HEIGHT, 50, 20.0, 20);
+        let mut tree = QuadTree::new(0.0,0.0, WIDTH, HEIGHT, 50, 20.0, 1000);
         for i in 0..nodes.len()
         {
             tree.add(i, nodes[i].pos);
@@ -73,6 +73,7 @@ impl Node {
                 }
             }
         }
+        tree
     }
 
     pub fn draw(&self, graphics: &mut Graphics2D, cam_offset : Vec2, scale: f32) {
@@ -96,7 +97,7 @@ impl Node {
         let fill_colour = Color::from_rgb(self.colour.0, self.colour.1.max(0.3), self.colour.2.max(0.3));
 
         // graphics.draw_circle(to_vector2(self.pos), self.radius, stroke_colour);
-        graphics.draw_circle(to_vector2(self.pos + cam_offset) * scale, self.radius * scale, fill_colour)
+        graphics.draw_circle(to_vector2((self.pos * scale) + cam_offset), self.radius * scale, fill_colour)
     }
 
     pub fn update_pos(&mut self, pos: Vec2) {
@@ -121,22 +122,36 @@ impl Node {
         let mut vel = self.pos - self.old_pos;
         self.old_pos = self.pos;
 
-        if self.pos.1 + self.radius >= phys.floor_height
-        {
-            vel = vel * phys.ground_friction;
-        }
-
         vel = vel * phys.friction;
 
         self.pos = self.pos + phys.gravity + vel;
     }
 
     pub fn constrain(&mut self, min: Vec2, max: Vec2) {
-        let a  = self.pos.clone();
         self.pos = self.pos.clamp(min + self.radius, max - self.radius);
-        if a != self.pos
+
+        if self.pos.0 + self.radius > max.0
         {
-            self.old_pos = a;
+            self.old_pos = self.old_pos - Vec2(max.0, 0.0);
+            self.pos =  self.pos - Vec2(max.0, 0.0);
+        }
+
+        if self.pos.1 + self.radius > max.1
+        {
+            self.old_pos = self.old_pos - Vec2(0.0, max.1);
+            self.pos =  self.pos - Vec2(0.0, max.1);
+        }
+
+        if self.pos.0 - self.radius < min.0
+        {
+            self.old_pos = Vec2(max.0, 0.0) + self.old_pos;
+            self.pos =  Vec2(max.0, 0.0) + self.pos;
+        }
+
+        if self.pos.1 - self.radius < min.1
+        {
+            self.old_pos = Vec2(0.0, max.1) + self.old_pos;
+            self.pos =  Vec2(0.0, max.1) + self.pos;
         }
     }
 }

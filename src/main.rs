@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::{time::SystemTime, ops::Deref};
 
 use speedy2d::{
     color::Color,
@@ -10,10 +10,10 @@ use speedy2d::{
 use verlet_multithreaded::{
     consts::{HEIGHT, WIDTH},
     physics::VerletPhysicsProperties,
-    node::Node, to_vector2,
+    node::Node, to_vector2, visualisation::draw_aabb,
 };
 
-use vecto_rs::Vec2;
+use vecto_rs::{Vec2, QuadTree};
 
 const BYTES: &[u8] = include_bytes!("../res/font.ttf");
 
@@ -29,6 +29,8 @@ struct Verlet {
     cam_offset : Vec2,
     do_cam_offset_calc : bool,
     last_mouse_pos : Vec2,
+    last_mouse_pos_raw : Vec2,
+    mouse_pos_raw: Vec2,
     scale : f32,
 }
 
@@ -42,10 +44,12 @@ impl Default for Verlet {
             last_run_time: SystemTime::now(),
             grabbed_node: usize::MAX,
             f: 0.0,
-            auto_fill : true,
+            auto_fill : false,
             cam_offset : Vec2::ZERO,
             do_cam_offset_calc : false,
             last_mouse_pos : Vec2::ZERO,
+            mouse_pos_raw : Vec2::ZERO,
+            last_mouse_pos_raw : Vec2::ZERO,
             scale : 1.0,
         }
     }
@@ -73,8 +77,6 @@ fn main() {
         let x = WIDTH / nodes as f32;
         verlet.add_node(Node::new(i as f32 * x, i as f32 * x))
     }
-
-    verlet.phys_properties.floor_height = HEIGHT;
 
     win.run_loop(verlet);
 }
@@ -121,37 +123,27 @@ impl WindowHandler for Verlet {
 
         if self.do_cam_offset_calc
         {
-            self.cam_offset = self.cam_offset + ((self.mouse_pos - self.last_mouse_pos) / self.scale);
+            self.cam_offset = self.cam_offset + (self.mouse_pos_raw - self.last_mouse_pos_raw);
         }
-        self.last_mouse_pos = self.mouse_pos;
 
         self.f += 2.0;
 
         if self.auto_fill
         {
-            let mut n = Node::new(1.0,1.0);
-            n.old_pos = n.pos - 0.1;
-            n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
-            self.add_node(n);
-
-            let mut n = Node::new(20.0,1.0);
-            n.old_pos = n.pos - 0.1;
-            n.colour = (((self.f) / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
-            self.add_node(n);
-
-            let mut n = Node::new(1.0,20.0);
-            n.old_pos = n.pos - 0.1;
-            n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
-            self.add_node(n);
+            for _ in 0..1
+            {
+                let mut n = Node::new(WIDTH / 2.0, HEIGHT / 2.0);
+                n.old_pos = n.pos + Vec2(self.f % 0.1, (self.f + 0.1) % 0.1);
+                n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
+                n.radius = (self.f % 10.0) + 10.0;
+                self.add_node(n);
+            }
         }
 
-        for x in ((WIDTH as i32 / 10)..WIDTH as i32).step_by(WIDTH as usize / 10) {
-            graphics.draw_line(to_vector2(self.cam_offset + Vec2(x as f32, 0.0)) * self.scale, to_vector2(self.cam_offset + Vec2(x as f32, HEIGHT))  * self.scale, 1.0, Color::WHITE)
-        }
-
-        for y in ((HEIGHT as i32 / 10)..HEIGHT as i32).step_by(HEIGHT as usize / 10) {
-            graphics.draw_line(to_vector2(self.cam_offset + Vec2(0.0, y as f32)) * self.scale, to_vector2(self.cam_offset + Vec2(WIDTH, y as f32))  * self.scale, 1.0, Color::WHITE)
-        }
+        graphics.draw_line(to_vector2(Vec2(0.0,0.0      ) * self.scale + self.cam_offset),to_vector2(Vec2(0.0,HEIGHT  ) * self.scale + self.cam_offset), 1.0, Color::WHITE);
+        graphics.draw_line(to_vector2(Vec2(0.0,HEIGHT   ) * self.scale + self.cam_offset),to_vector2(Vec2(WIDTH,HEIGHT) * self.scale + self.cam_offset), 1.0, Color::WHITE);
+        graphics.draw_line(to_vector2(Vec2(WIDTH,HEIGHT ) * self.scale + self.cam_offset),to_vector2(Vec2(WIDTH,0.0   ) * self.scale + self.cam_offset), 1.0, Color::WHITE);
+        graphics.draw_line(to_vector2(Vec2(WIDTH,0.0    ) * self.scale + self.cam_offset),to_vector2(Vec2(0.0,0.0     ) * self.scale + self.cam_offset), 1.0, Color::WHITE);
 
         let pos = self.mouse_pos;
 
@@ -170,7 +162,28 @@ impl WindowHandler for Verlet {
         }
 
         if self.phys_properties.collisions_on {
-            Node::collision_check(&mut self.nodes);
+            let tree = Node::collision_check(&mut self.nodes);
+            fn walk(tree : &QuadTree<usize>, graphics: &mut speedy2d::Graphics2D, scale_cam : (f32, Vec2))
+            {
+                if tree.is_leaf()
+                {
+                    draw_aabb(tree.get_bb(), graphics, scale_cam)
+                } else 
+                {
+                    let tl = tree.get_tl();
+                    walk(&tl, graphics, scale_cam);
+
+                    let tr = tree.get_tr();
+                    walk(&tr, graphics, scale_cam);
+
+                    let bl = tree.get_bl();
+                    walk(&bl, graphics, scale_cam);
+
+                    let br = tree.get_br();
+                    walk(&br, graphics, scale_cam);
+                }
+            }
+            walk(&tree, graphics, (self.scale, self.cam_offset));
         }
 
         let now = SystemTime::now();
@@ -199,7 +212,10 @@ impl WindowHandler for Verlet {
         _helper: &mut speedy2d::window::WindowHelper<()>,
         position: speedy2d::dimen::Vec2,
     ) {
-        self.mouse_pos = Vec2(position.x, position.y);
+        self.last_mouse_pos = self.mouse_pos;
+        self.last_mouse_pos_raw = self.mouse_pos_raw;
+        self.mouse_pos = (Vec2(position.x, position.y) - self.cam_offset) / self.scale;
+        self.mouse_pos_raw = Vec2(position.x, position.y);
     }
 
     fn on_mouse_button_up(

@@ -4,6 +4,7 @@ use vecto_rs::Vec2;
 pub mod consts;
 pub mod physics;
 pub mod node;
+pub mod visualisation;
 
 pub fn to_vector2(a : Vec2) -> Vector2<f32>
 {
