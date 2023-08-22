@@ -21,7 +21,7 @@ impl Node {
         Self {
             pos: Vec2(x, y),
             old_pos: Vec2(x, y),
-            radius: 7.5,
+            radius: 5.0,
             dont_update: false,
             anchor: false,
             mass : 1.0,
@@ -75,7 +75,7 @@ impl Node {
         }
     }
 
-    pub fn draw(&self, graphics: &mut Graphics2D) {
+    pub fn draw(&self, graphics: &mut Graphics2D, cam_offset : Vec2, scale: f32) {
 
         let _stroke_colour = if self.anchor
         {
@@ -96,7 +96,7 @@ impl Node {
         let fill_colour = Color::from_rgb(self.colour.0, self.colour.1.max(0.3), self.colour.2.max(0.3));
 
         // graphics.draw_circle(to_vector2(self.pos), self.radius, stroke_colour);
-        graphics.draw_circle(to_vector2(self.pos), self.radius, fill_colour)
+        graphics.draw_circle(to_vector2(self.pos + cam_offset) * scale, self.radius * scale, fill_colour)
     }
 
     pub fn update_pos(&mut self, pos: Vec2) {

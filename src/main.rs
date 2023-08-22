@@ -10,7 +10,7 @@ use speedy2d::{
 use verlet_multithreaded::{
     consts::{HEIGHT, WIDTH},
     physics::VerletPhysicsProperties,
-    node::Node,
+    node::Node, to_vector2,
 };
 
 use vecto_rs::Vec2;
@@ -25,7 +25,11 @@ struct Verlet {
     mouse_pos: Vec2,
     grabbed_node: usize,
     f : f32,
-    auto_fill: bool
+    auto_fill: bool,
+    cam_offset : Vec2,
+    do_cam_offset_calc : bool,
+    last_mouse_pos : Vec2,
+    scale : f32,
 }
 
 impl Default for Verlet {
@@ -38,7 +42,11 @@ impl Default for Verlet {
             last_run_time: SystemTime::now(),
             grabbed_node: usize::MAX,
             f: 0.0,
-            auto_fill : true
+            auto_fill : true,
+            cam_offset : Vec2::ZERO,
+            do_cam_offset_calc : false,
+            last_mouse_pos : Vec2::ZERO,
+            scale : 1.0,
         }
     }
 }
@@ -47,7 +55,7 @@ fn main() {
     let win = Window::new_with_options(
         "Verlet",
         WindowCreationOptions::new_windowed(
-            speedy2d::window::WindowSize::PhysicalPixels(Vector2::new(WIDTH as u32, HEIGHT as u32)),
+            speedy2d::window::WindowSize::PhysicalPixels(Vector2::new(720.0 as u32, 720.0 as u32)),
             None,
         )
         .with_resizable(false)
@@ -88,12 +96,34 @@ impl Verlet {
 }
 
 impl WindowHandler for Verlet {
+    fn on_mouse_wheel_scroll(
+            &mut self,
+            helper: &mut speedy2d::window::WindowHelper<()>,
+            distance: speedy2d::window::MouseScrollDistance
+        ) {
+        let y = match distance
+        {
+            speedy2d::window::MouseScrollDistance::Lines { x, y, z } => {y / 100.0},
+            speedy2d::window::MouseScrollDistance::Pixels { x, y, z } => {y},
+            speedy2d::window::MouseScrollDistance::Pages { x, y, z } => {y},
+        };
+        
+
+        self.scale = (self.scale + y as f32).max(0.01);
+    }
+
     fn on_draw(
         &mut self,
         helper: &mut speedy2d::window::WindowHelper<()>,
         graphics: &mut speedy2d::Graphics2D,
     ) {
         graphics.clear_screen(Color::from_hex_rgb(0x0f0e16));
+
+        if self.do_cam_offset_calc
+        {
+            self.cam_offset = self.cam_offset + ((self.mouse_pos - self.last_mouse_pos) / self.scale);
+        }
+        self.last_mouse_pos = self.mouse_pos;
 
         self.f += 2.0;
 
@@ -116,11 +146,11 @@ impl WindowHandler for Verlet {
         }
 
         for x in ((WIDTH as i32 / 10)..WIDTH as i32).step_by(WIDTH as usize / 10) {
-            graphics.draw_line((x as f32, 0.0), (x as f32, HEIGHT), 1.0, Color::WHITE)
+            graphics.draw_line(to_vector2(self.cam_offset + Vec2(x as f32, 0.0)) * self.scale, to_vector2(self.cam_offset + Vec2(x as f32, HEIGHT))  * self.scale, 1.0, Color::WHITE)
         }
 
         for y in ((HEIGHT as i32 / 10)..HEIGHT as i32).step_by(HEIGHT as usize / 10) {
-            graphics.draw_line((0.0, y as f32), (WIDTH, y as f32), 1.0, Color::WHITE)
+            graphics.draw_line(to_vector2(self.cam_offset + Vec2(0.0, y as f32)) * self.scale, to_vector2(self.cam_offset + Vec2(WIDTH, y as f32))  * self.scale, 1.0, Color::WHITE)
         }
 
         let pos = self.mouse_pos;
@@ -136,7 +166,7 @@ impl WindowHandler for Verlet {
         }
 
         for node in &self.nodes {
-            node.draw(graphics);
+            node.draw(graphics, self.cam_offset, self.scale);
         }
 
         if self.phys_properties.collisions_on {
@@ -155,7 +185,7 @@ impl WindowHandler for Verlet {
         self.last_run_time = now;
 
         let text = self.font.layout_text(
-            format!("FPS: {}", fps.floor()).as_str(),
+            format!("FPS: {}\nCircles: {}", fps.floor(), self.nodes.len()).as_str(),
             32.0,
             TextOptions::new(),
         );
@@ -183,6 +213,11 @@ impl WindowHandler for Verlet {
             }
             self.grabbed_node = usize::MAX;
         }
+
+        if button == MouseButton::Middle
+        {
+            self.do_cam_offset_calc = false;
+        }
     }
 
     fn on_mouse_button_down(
@@ -194,6 +229,12 @@ impl WindowHandler for Verlet {
             if let Some(grabbed) = self.get_mouse_grabbed() {
                 grabbed.anchor = !grabbed.anchor;
             }
+        }
+
+
+        if button == MouseButton::Middle
+        {
+            self.do_cam_offset_calc = true;
         }
 
         if button == MouseButton::Left {
