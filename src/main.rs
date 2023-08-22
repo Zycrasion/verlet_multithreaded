@@ -111,8 +111,8 @@ impl WindowHandler for Verlet {
         let y = match distance
         {
             speedy2d::window::MouseScrollDistance::Lines { x, y, z } => {y / 100.0},
-            speedy2d::window::MouseScrollDistance::Pixels { x, y, z } => {y},
-            speedy2d::window::MouseScrollDistance::Pages { x, y, z } => {y},
+            speedy2d::window::MouseScrollDistance::Pixels { x, y, z } => {y / 100.0},
+            speedy2d::window::MouseScrollDistance::Pages { x, y, z } => {y / 100.0},
         };
         
 
