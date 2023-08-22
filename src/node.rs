@@ -39,7 +39,7 @@ impl Node {
 
     pub fn collision_check(nodes: &mut Vec<Node>) -> QuadTree<usize>
     {
-        let mut tree = QuadTree::new(0.0,0.0, WIDTH, HEIGHT, 50, 20.0, 1000);
+        let mut tree = QuadTree::new(0.0,0.0, WIDTH, HEIGHT, 25, 45.0, 4);
         for i in 0..nodes.len()
         {
             tree.add(i, nodes[i].pos);

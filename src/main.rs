@@ -204,6 +204,9 @@ impl WindowHandler for Verlet {
         );
         graphics.draw_text((0.0, 0.0), Color::WHITE, &text);
 
+        self.last_mouse_pos = self.mouse_pos;
+        self.last_mouse_pos_raw = self.mouse_pos_raw;
+
         helper.request_redraw();
     }
 
@@ -212,8 +215,6 @@ impl WindowHandler for Verlet {
         _helper: &mut speedy2d::window::WindowHelper<()>,
         position: speedy2d::dimen::Vec2,
     ) {
-        self.last_mouse_pos = self.mouse_pos;
-        self.last_mouse_pos_raw = self.mouse_pos_raw;
         self.mouse_pos = (Vec2(position.x, position.y) - self.cam_offset) / self.scale;
         self.mouse_pos_raw = Vec2(position.x, position.y);
     }
@@ -283,6 +284,18 @@ impl WindowHandler for Verlet {
     ) {
         if let Some(key) = virtual_key_code {
             match key {
+                VirtualKeyCode::C => {
+                    self.nodes.clear();
+                }
+                VirtualKeyCode::Backspace =>
+                {
+                    if self.grabbed_node > self.nodes.len()
+                    {
+                        return;
+                    }
+                    self.nodes.remove(self.grabbed_node);
+                    self.grabbed_node = usize::MAX;
+                }
                 VirtualKeyCode::Escape => helper.terminate_loop(),
                 VirtualKeyCode::LShift => {
 
