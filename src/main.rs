@@ -1,6 +1,5 @@
 use std::{
-    sync::{mpsc::channel, Arc, Mutex},
-    time::{Duration, SystemTime}, cell::RefCell, borrow::BorrowMut, ops::Deref,
+    time::{SystemTime},
 };
 
 use speedy2d::{
@@ -16,9 +15,7 @@ use verlet_multithreaded::{
     node::Node,
 };
 
-use vecto_rs::{Vec2, QuadTree};
-
-use rayon::{prelude::*, ThreadPoolBuilder};
+use vecto_rs::{Vec2};
 
 const BYTES: &[u8] = include_bytes!("../res/font.ttf");
 
@@ -171,7 +168,7 @@ impl WindowHandler for Verlet {
 
     fn on_mouse_move(
         &mut self,
-        helper: &mut speedy2d::window::WindowHelper<()>,
+        _helper: &mut speedy2d::window::WindowHelper<()>,
         position: speedy2d::dimen::Vec2,
     ) {
         self.mouse_pos = Vec2(position.x, position.y);
@@ -179,7 +176,7 @@ impl WindowHandler for Verlet {
 
     fn on_mouse_button_up(
         &mut self,
-        helper: &mut speedy2d::window::WindowHelper<()>,
+        _helper: &mut speedy2d::window::WindowHelper<()>,
         button: MouseButton,
     ) {
         if button == MouseButton::Left {
@@ -192,7 +189,7 @@ impl WindowHandler for Verlet {
 
     fn on_mouse_button_down(
         &mut self,
-        helper: &mut speedy2d::window::WindowHelper<()>,
+        _helper: &mut speedy2d::window::WindowHelper<()>,
         button: speedy2d::window::MouseButton,
     ) {
         if button == MouseButton::Right {
@@ -227,7 +224,7 @@ impl WindowHandler for Verlet {
         &mut self,
         helper: &mut speedy2d::window::WindowHelper<()>,
         virtual_key_code: Option<speedy2d::window::VirtualKeyCode>,
-        scancode: speedy2d::window::KeyScancode,
+        _scancode: speedy2d::window::KeyScancode,
     ) {
         if let Some(key) = virtual_key_code {
             match key {

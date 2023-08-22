@@ -1291,7 +1291,6 @@ source = "git+https://github.com/Zycrasion/vecto-rs#ab40485f11e799e553fd84cf4d44
 name = "verlet_multithreaded"
 version = "0.1.0"
 dependencies = [
- "rayon",
  "speedy2d",
  "vecto-rs",
 ]

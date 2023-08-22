@@ -1,4 +1,4 @@
-use std::{sync::Arc, rc::Rc, ops::Deref, cell::RefCell};
+
 
 use crate::{physics::VerletPhysicsProperties, to_vector2};
 use speedy2d::{color::Color, Graphics2D};
@@ -77,7 +77,7 @@ impl Node {
 
     pub fn draw(&self, graphics: &mut Graphics2D) {
 
-        let stroke_colour = if self.anchor
+        let _stroke_colour = if self.anchor
         {
             Color::from_hex_rgb(0x1d3658)
         } else
@@ -85,7 +85,7 @@ impl Node {
             Color::GRAY
         };
 
-        let fill_colour = if self.anchor
+        let _fill_colour = if self.anchor
         {
             Color::from_hex_rgb(0x447a9c)
         } else 
