@@ -1,6 +1,21 @@
 # Verlet
+Physics Engine built using [Speedy2D](https://github.com/QuantumBadger/Speedy2D) for the graphics and [Vecto-rs](https://github.com/Zycrasion/vecto-rs) (Built by me) for the maths & QuadTree.
+
+### Debug
 ![](https://github.com/Zycrasion/verlet_multithreaded/blob/master/res/example1.png?raw=true)
 ![](https://github.com/Zycrasion/verlet_multithreaded/blob/master/res/example2.png?raw=true)
+
+### Release
+![](https://github.com/Zycrasion/verlet_multithreaded/blob/master/res/example3.png?raw=true)
+![](https://github.com/Zycrasion/verlet_multithreaded/blob/master/res/example4.png?raw=true)
+
+## Running
+In a Terminal Write
+```bash
+git clone https://github.com/Zycrasion/verlet_multithreaded
+cd verlet_multithreaded
+cargo run -r
+```
 
 ## Controls
 -   Space - Toggle Autofill
@@ -20,12 +35,20 @@
 |1508   | 60 |
 |4434   | 53 | 
 |5014   | 45 |
-|1000~  | 15 |
+|10,000~  | 15 |
+
+## Peformance on Ryzen 5600G (Release)
+|Circles            | FPS   |
+|-------------------|-------|
+|0 - 20,000         | 55-60 |
+|20,000 - 26,000    | 40-55 |
+|26,000 - 32,000    | 30-40 |
 
 ## Peformance on 2017 Macbook Air (Release)
 I honestly forgot about release builds. I tested this on a 6 year old laptop and got 26494 circles before hitting 20 fps.
 |Circles| FPS|
-|26494  | 20 |
+|-------|----|
+|26,494  | 20 |
 
 ## QuadTree Implementation
 I have used the QuadTree from vecto-rs v0.7.4,
