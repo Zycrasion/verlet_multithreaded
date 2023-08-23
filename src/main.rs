@@ -1,6 +1,6 @@
-use std::{time::SystemTime, ops::Deref, fs, io::Cursor, thread};
+use std::{time::SystemTime, thread};
 
-use image::{io::Reader, ImageBuffer, Pixel, Rgb};
+use image::{ImageBuffer, Rgb};
 use speedy2d::{
     color::Color,
     dimen::Vector2,
@@ -105,14 +105,14 @@ impl Verlet {
 impl WindowHandler for Verlet {
     fn on_mouse_wheel_scroll(
             &mut self,
-            helper: &mut speedy2d::window::WindowHelper<()>,
+            _helper: &mut speedy2d::window::WindowHelper<()>,
             distance: speedy2d::window::MouseScrollDistance
         ) {
         let y = match distance
         {
-            speedy2d::window::MouseScrollDistance::Lines { x, y, z } => {y / 100.0},
-            speedy2d::window::MouseScrollDistance::Pixels { x, y, z } => {y / 100.0},
-            speedy2d::window::MouseScrollDistance::Pages { x, y, z } => {y / 100.0},
+            speedy2d::window::MouseScrollDistance::Lines { x: _, y, z: _ } => {y / 100.0},
+            speedy2d::window::MouseScrollDistance::Pixels { x: _, y, z: _ } => {y / 100.0},
+            speedy2d::window::MouseScrollDistance::Pages { x: _, y, z: _ } => {y / 100.0},
         };
         
 

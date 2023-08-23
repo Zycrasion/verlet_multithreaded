@@ -14,13 +14,18 @@
 -   Left Click - Grab Node
 -   Shift - Take Screenshot
 
-## Performance on Ryzen 5600G
+## Performance on Ryzen 5600G (Debug Build)
 |Circles| FPS|
 |-------|----|
 |1508   | 60 |
 |4434   | 53 | 
 |5014   | 45 |
 |1000~  | 15 |
+
+## Peformance on 2017 Macbook Air (Release)
+I honestly forgot about release builds. I tested this on a 6 year old laptop and got 26494 circles before hitting 20 fps.
+|Circles| FPS|
+|26494  | 20 |
 
 ## QuadTree Implementation
 I have used the QuadTree from vecto-rs v0.7.4,
