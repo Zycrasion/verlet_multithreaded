@@ -1516,7 +1516,7 @@ source = "git+https://github.com/Zycrasion/vecto-rs#f1961fe46475abd2fb351b50d167
 
 [[package]]
 name = "verlet_multithreaded"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "image 0.24.7",
  "speedy2d",

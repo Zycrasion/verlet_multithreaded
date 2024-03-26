@@ -1,346 +1,169 @@
-use std::{time::SystemTime, thread};
+use std::{iter::{zip, Zip}, sync::{Arc, Mutex, MutexGuard}, thread, time::{Duration, Instant}};
 
-use image::{ImageBuffer, Rgb};
-use speedy2d::{
-    color::Color,
-    dimen::Vector2,
-    font::{Font, TextLayout, TextOptions},
-    window::{MouseButton, VirtualKeyCode, WindowCreationOptions, WindowHandler},
-    Window,
-};
-use verlet_multithreaded::{
-    consts::{HEIGHT, WIDTH},
-    physics::VerletPhysicsProperties,
-    node::Node, to_vector2, visualisation::draw_aabb,
-};
+use speedy2d::{color::Color, dimen::Vector2, window::{self, WindowHandler}, Window};
+use vecto_rs::{QuadTree, Vec2};
 
-use vecto_rs::{Vec2, QuadTree};
+const CIRCLE_SIZE : f32 = 3.;
 
-const BYTES: &[u8] = include_bytes!("../res/font.ttf");
-
-struct Verlet {
-    phys_properties: VerletPhysicsProperties,
-    nodes: Vec<Node>,
-    font: Font,
-    last_run_time: SystemTime,
-    mouse_pos: Vec2,
-    grabbed_node: usize,
-    f : f32,
-    auto_fill: bool,
-    cam_offset : Vec2,
-    do_cam_offset_calc : bool,
-    last_mouse_pos : Vec2,
-    last_mouse_pos_raw : Vec2,
-    mouse_pos_raw: Vec2,
-    scale : f32,
-    view_tree : bool,
-    request_capture : bool
+pub struct Simulation
+{
+    pub circles_old : Vec<Vec2>,
+    pub render_circles : Arc<Mutex<Vec<Vec2>>>,
+    pub sim_steps : u32,
+    pub instant : Instant,
+    pub window_size : Arc<Mutex<(f32, f32)>>
 }
 
-impl Default for Verlet {
-    fn default() -> Self {
-        Self {
-            mouse_pos: Vec2::ZERO,
-            phys_properties: Default::default(),
-            nodes: Default::default(),
-            font: Font::new(BYTES).unwrap(),
-            last_run_time: SystemTime::now(),
-            grabbed_node: usize::MAX,
-            f: 0.0,
-            auto_fill : false,
-            cam_offset : Vec2::ZERO,
-            do_cam_offset_calc : false,
-            last_mouse_pos : Vec2::ZERO,
-            mouse_pos_raw : Vec2::ZERO,
-            last_mouse_pos_raw : Vec2::ZERO,
-            scale : 1.0,
-            view_tree : false,
-            request_capture : false
-        }
-    }
+fn main()
+{
+    let simulation = Simulation::new();
+
+    let app_window = AppWindow{render_circles:simulation.render_circles.clone(), frames : 0, instant : Instant::now(), window_size : simulation.window_size.clone()};
+    simulation.begin();
+    let win_size = app_window.window_size.lock().unwrap().clone();
+    Window::new_centered("Hi", (win_size.0 as u32, win_size.1 as u32)).unwrap().run_loop(app_window)
 }
 
-fn main() {
-    let win = Window::new_with_options(
-        "Verlet",
-        WindowCreationOptions::new_windowed(
-            speedy2d::window::WindowSize::PhysicalPixels(Vector2::new(720.0 as u32, 720.0 as u32)),
-            None,
-        )
-        .with_resizable(false)
-        .with_decorations(false)
-        .with_multisampling(16)
-        .with_vsync(true),
-    )
-    .unwrap();
-
-    let mut verlet = Verlet::default();
-
-    let nodes = 0;
-
-    for i in 0..nodes {
-        let x = WIDTH / nodes as f32;
-        verlet.add_node(Node::new(i as f32 * x, i as f32 * x))
-    }
-
-    win.run_loop(verlet);
-}
-
-impl Verlet {
-    pub fn get_mouse_grabbed(&mut self) -> Option<&mut Node> {
-        if self.grabbed_node < self.nodes.len() {
-            Some(&mut self.nodes[self.grabbed_node])
-        } else {
-            None
-        }
-    }
-
-    pub fn add_node(&mut self, node: Node)
+impl Simulation
+{
+    pub fn new() -> Self
     {
-        let a1 = node;
-        self.nodes.push(a1);
+        let mut circles_old = vec![];
+        let mut render_circles = vec![];
+        for i in 0..10_000
+        {
+            let row = (i % 100);
+            render_circles.push(Vec2(i as f32 * CIRCLE_SIZE * 1.1, (row as f32 * CIRCLE_SIZE * 1.1)));
+            circles_old.push(Vec2(i as f32 * CIRCLE_SIZE * 1.1 - 0.1, (row as f32 * CIRCLE_SIZE * 1.1)));
+        }
+        Self
+        {
+            circles_old,
+            render_circles : Arc::new(Mutex::new(render_circles)),
+            sim_steps : 0,
+            instant : Instant::now(),
+            window_size : Arc::new(Mutex::new((720., 720.)))
+        }
+    }
+
+    pub fn update(&mut self)
+    {
+        if self.instant.elapsed().as_secs_f32() > 1.0
+        {
+            println!("TPS: {}", self.sim_steps);
+            self.instant = Instant::now();
+            self.sim_steps = 0;
+        }
+        self.sim_steps += 1;
+
+        let circle_lock = self.render_circles.lock().unwrap();
+        let mut circles = circle_lock.clone();
+        drop(circle_lock);
+        let win_size = self.window_size.lock().unwrap().clone();
+        let mut quad_tree : QuadTree<usize> = QuadTree::new(0., 0., win_size.0, win_size.1, 200, CIRCLE_SIZE * 2., 12);
+
+        for (i, (circle, circle_old)) in zip::<&mut Vec<Vec2>, &mut Vec<Vec2>>(circles.as_mut(), &mut self.circles_old).enumerate()
+        {
+            quad_tree.add(i, *circle);
+
+            let mut velocity = *circle - *circle_old;
+            velocity = velocity * 0.97;
+            velocity.1 += 0.009;
+            *circle_old = *circle;
+            *circle = *circle + velocity;
+            *circle = circle.clamp(Vec2(0., 0.), Vec2(win_size.0, win_size.1));
+        }
+        
+        for i1 in 0..circles.len()
+        {
+            for v in quad_tree.query(circles[i1])
+            {
+                let i2 = v.1;
+                if i1 == i2
+                {
+                    continue;
+                }
+                let dist = circles[i1].dist(&circles[i2]).max(0.01);
+                if dist < CIRCLE_SIZE * 2.
+                {
+                    let midpoint = (circles[i1] + circles[i2]) / 2.;
+                    
+                    let new_pos_i1 = midpoint + (circles[i1] - circles[i2]) * CIRCLE_SIZE / dist;
+                    let new_pos_i2 = midpoint + (circles[i2] - circles[i1]) * CIRCLE_SIZE / dist;
+
+                    // let new_old_pos_i1 = self.circles_old[i1] + (circles[i1] - new_pos_i1);
+                    // let new_old_pos_i2 = self.circles_old[i2] + (circles[i2] - new_pos_i2);
+
+                    circles[i1] = new_pos_i1; circles[i2] = new_pos_i2;
+
+                    // self.circles_old[i1] = new_old_pos_i1;
+                    // self.circles_old[i2] = new_old_pos_i2;
+                }
+            }
+        }
+
+
+        *self.render_circles.lock().unwrap().as_mut() = circles;
+
+        // thread::sleep(Duration::from_secs_f64(1. / 100.));
+    }
+
+    pub fn begin(mut self)
+    {
+        thread::spawn(move ||{loop{self.update()}});
     }
 }
 
-impl WindowHandler for Verlet {
-    fn on_mouse_wheel_scroll(
-            &mut self,
-            _helper: &mut speedy2d::window::WindowHelper<()>,
-            distance: speedy2d::window::MouseScrollDistance
-        ) {
-        let y = match distance
-        {
-            speedy2d::window::MouseScrollDistance::Lines { x: _, y, z: _ } => {y / 100.0},
-            speedy2d::window::MouseScrollDistance::Pixels { x: _, y, z: _ } => {y / 100.0},
-            speedy2d::window::MouseScrollDistance::Pages { x: _, y, z: _ } => {y / 100.0},
-        };
-        
+struct AppWindow
+{
+    pub render_circles : Arc<Mutex<Vec<Vec2>>>,
+    pub frames : u32,
+    pub instant : Instant,
+    pub window_size : Arc<Mutex<(f32, f32)>>
+}
 
-        self.scale = (self.scale + y as f32).max(0.01);
+impl WindowHandler for AppWindow
+{
+    fn on_resize(&mut self, helper: &mut speedy2d::window::WindowHelper<()>, size_pixels: speedy2d::dimen::UVec2)
+    {
+        *self.window_size.lock().unwrap() = (size_pixels.into_f32().x, size_pixels.into_f32().y);
     }
 
     fn on_draw(
         &mut self,
         helper: &mut speedy2d::window::WindowHelper<()>,
-        graphics: &mut speedy2d::Graphics2D,
-    ) {
-        graphics.clear_screen(Color::from_hex_rgb(0x0f0e16));
-
-        if self.do_cam_offset_calc
+        graphics: &mut speedy2d::Graphics2D
+    )
+    {
+        self.frames += 1;
+        if self.instant.elapsed().as_secs_f32() > 1.0
         {
-            self.cam_offset = self.cam_offset + (self.mouse_pos_raw - self.last_mouse_pos_raw);
+            println!("FPS: {}", self.frames);
+            self.instant = Instant::now();
+            self.frames = 0;
         }
-
-        self.f += 2.0;
-
-        if self.auto_fill
+        graphics.clear_screen(Color::BLACK);
+        let circle_lock = self.render_circles.lock().unwrap();
+        let circles = circle_lock.clone();
+        drop(circle_lock);
+        let mut r  = 0;
+        let mut g = 0;
+        let mut b = 0;
+        for circle in circles
         {
-            for _ in 0..1
+            graphics.draw_circle(Vector2::new(circle.0, circle.1), CIRCLE_SIZE, Color::from_int_rgb(r.max(50), g.max(50), b.max(50)));
+            r = r.overflowing_add(1).0;
+            if r == 255
             {
-                let mut n = Node::new(WIDTH / 2.0, HEIGHT / 2.0);
-                n.old_pos = n.pos + Vec2(self.f % 0.1, (self.f + 0.1) % 0.1);
-                n.colour = ((self.f / 500.0) % 1.0,0.0,(self.f / 1000.0) % 1.0);
-                n.radius = (self.f % 10.0) + 10.0;
-                self.add_node(n);
+                g = g.overflowing_add(1).0;
+            }
+
+            if g == 255
+            {
+                b = b.overflowing_add(1).0;
             }
         }
-
-        graphics.draw_line(to_vector2(Vec2(0.0,0.0      ) * self.scale + self.cam_offset),to_vector2(Vec2(0.0,HEIGHT  ) * self.scale + self.cam_offset), 1.0, Color::WHITE);
-        graphics.draw_line(to_vector2(Vec2(0.0,HEIGHT   ) * self.scale + self.cam_offset),to_vector2(Vec2(WIDTH,HEIGHT) * self.scale + self.cam_offset), 1.0, Color::WHITE);
-        graphics.draw_line(to_vector2(Vec2(WIDTH,HEIGHT ) * self.scale + self.cam_offset),to_vector2(Vec2(WIDTH,0.0   ) * self.scale + self.cam_offset), 1.0, Color::WHITE);
-        graphics.draw_line(to_vector2(Vec2(WIDTH,0.0    ) * self.scale + self.cam_offset),to_vector2(Vec2(0.0,0.0     ) * self.scale + self.cam_offset), 1.0, Color::WHITE);
-
-        let pos = self.mouse_pos;
-
-        if let Some(grabbed) = self.get_mouse_grabbed() {
-            grabbed.update_pos(pos);
-        }
-
-        for node in &mut self.nodes
-        {
-            node.update(&self.phys_properties);
-            node.constrain(Vec2::ZERO, Vec2(WIDTH, HEIGHT));
-        }
-
-        for node in &self.nodes {
-            node.draw(graphics, self.cam_offset, self.scale);
-        }
-
-        if self.phys_properties.collisions_on {
-            let tree = Node::collision_check(&mut self.nodes);
-            if self.view_tree
-            {
-                fn walk(tree : &QuadTree<usize>, graphics: &mut speedy2d::Graphics2D, scale_cam : (f32, Vec2))
-                {
-                    if tree.is_leaf()
-                    {
-                        draw_aabb(tree.get_bb(), graphics, scale_cam)
-                    } else 
-                    {
-                        let tl = tree.get_tl();
-                        walk(&tl, graphics, scale_cam);
-    
-                        let tr = tree.get_tr();
-                        walk(&tr, graphics, scale_cam);
-    
-                        let bl = tree.get_bl();
-                        walk(&bl, graphics, scale_cam);
-    
-                        let br = tree.get_br();
-                        walk(&br, graphics, scale_cam);
-                    }
-                }
-                walk(&tree, graphics, (self.scale, self.cam_offset));
-            }
-        }
-
-        let now = SystemTime::now();
-
-        let dt = now
-            .duration_since(self.last_run_time)
-            .unwrap()
-            .as_secs_f32();
-
-        let fps: f32 = 1.0 / dt;
-
-        self.last_run_time = now;
-
-        let text = self.font.layout_text(
-            format!("FPS: {}\nCircles: {}", fps.floor(), self.nodes.len()).as_str(),
-            32.0,
-            TextOptions::new(),
-        );
-        graphics.draw_text((0.0, 0.0), Color::WHITE, &text);
-
-
-        if self.request_capture
-        {
-            let data = graphics.capture(speedy2d::image::ImageDataType::RGB);
-            thread::spawn(move || {                
-                let data = data.data();
-    
-                let mut image2 = ImageBuffer::new(720, 720);
-                
-                for x in 0..720
-                {
-                    for y in 0..720
-                    {
-                        image2.put_pixel(x, y, Rgb([data[((x * 3 + (y * 720 * 3)) + 0) as usize], data[((x * 3 + (y * 720 * 3)) + 1) as usize], data[((x * 3 + (y * 720 * 3)) + 2) as usize]]));
-                    }
-                }
-    
-                image2.save("image.png").unwrap();
-            });
-            self.request_capture = false;
-        }
-
-        self.last_mouse_pos = self.mouse_pos;
-        self.last_mouse_pos_raw = self.mouse_pos_raw;
 
         helper.request_redraw();
-    }
-
-    fn on_mouse_move(
-        &mut self,
-        _helper: &mut speedy2d::window::WindowHelper<()>,
-        position: speedy2d::dimen::Vec2,
-    ) {
-        self.mouse_pos = (Vec2(position.x, position.y) - self.cam_offset) / self.scale;
-        self.mouse_pos_raw = Vec2(position.x, position.y);
-    }
-
-    fn on_mouse_button_up(
-        &mut self,
-        _helper: &mut speedy2d::window::WindowHelper<()>,
-        button: MouseButton,
-    ) {
-        if button == MouseButton::Left {
-            if let Some(grabbed) = self.get_mouse_grabbed() {
-                grabbed.dont_update = false;
-            }
-            self.grabbed_node = usize::MAX;
-        }
-
-        if button == MouseButton::Middle
-        {
-            self.do_cam_offset_calc = false;
-        }
-    }
-
-    fn on_mouse_button_down(
-        &mut self,
-        _helper: &mut speedy2d::window::WindowHelper<()>,
-        button: speedy2d::window::MouseButton,
-    ) {
-        if button == MouseButton::Right {
-            if let Some(grabbed) = self.get_mouse_grabbed() {
-                grabbed.anchor = !grabbed.anchor;
-            }
-        }
-
-
-        if button == MouseButton::Middle
-        {
-            self.do_cam_offset_calc = true;
-        }
-
-        if button == MouseButton::Left {
-            let mut lowest_dist = f32::MAX;
-            let mut closest_node: usize = usize::MAX;
-
-            let mut index = 0;
-
-            for node in &self.nodes {
-                let dist = node.pos.dist(&self.mouse_pos);
-                if dist <= node.radius && dist <= lowest_dist {
-                    lowest_dist = dist;
-                    closest_node = index;
-                }
-                index += 1;
-            }
-
-            self.grabbed_node = closest_node;
-            if let Some(grabbed) = self.get_mouse_grabbed() {
-                grabbed.dont_update = true;
-            }
-        }
-    }
-
-    fn on_key_down(
-        &mut self,
-        helper: &mut speedy2d::window::WindowHelper<()>,
-        virtual_key_code: Option<speedy2d::window::VirtualKeyCode>,
-        _scancode: speedy2d::window::KeyScancode,
-    ) {
-        if let Some(key) = virtual_key_code {
-            match key {
-                VirtualKeyCode::C => {
-                    self.nodes.clear();
-                }
-                VirtualKeyCode::V => {
-                    self.view_tree = !self.view_tree;
-                }
-                VirtualKeyCode::Backspace =>
-                {
-                    if self.grabbed_node > self.nodes.len()
-                    {
-                        return;
-                    }
-                    self.nodes.remove(self.grabbed_node);
-                    self.grabbed_node = usize::MAX;
-                }
-                VirtualKeyCode::Escape => helper.terminate_loop(),
-                VirtualKeyCode::LShift => {
-                    self.request_capture = true;
-                }
-                VirtualKeyCode::Space => {
-                    self.auto_fill = !self.auto_fill;
-                }
-                VirtualKeyCode::N => {
-                    self.add_node(Node::new(self.mouse_pos.0, self.mouse_pos.1));
-                }
-                _ => {}
-            }
-        }
     }
 }
