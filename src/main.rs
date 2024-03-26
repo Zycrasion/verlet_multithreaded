@@ -3,12 +3,11 @@ use std::{iter::{zip, Zip}, sync::{Arc, Mutex, MutexGuard}, thread, time::{Durat
 use speedy2d::{color::Color, dimen::Vector2, window::{self, WindowHandler}, Window};
 use vecto_rs::{QuadTree, Vec2};
 
-const CIRCLE_SIZE : f32 = 3.;
+const CIRCLE_SIZE : f32 = 5.;
 
 pub struct Simulation
 {
-    pub circles_old : Vec<Vec2>,
-    pub render_circles : Arc<Mutex<Vec<Vec2>>>,
+    pub render_circles : Arc<Mutex<Vec<(Vec2, Vec2)>>>,
     pub sim_steps : u32,
     pub instant : Instant,
     pub window_size : Arc<Mutex<(f32, f32)>>
@@ -28,17 +27,15 @@ impl Simulation
 {
     pub fn new() -> Self
     {
-        let mut circles_old = vec![];
         let mut render_circles = vec![];
-        for i in 0..10_000
+        for i in 0..30_000
         {
-            let row = (i % 100);
-            render_circles.push(Vec2(i as f32 * CIRCLE_SIZE * 1.1, (row as f32 * CIRCLE_SIZE * 1.1)));
-            circles_old.push(Vec2(i as f32 * CIRCLE_SIZE * 1.1 - 0.1, (row as f32 * CIRCLE_SIZE * 1.1)));
+            let x = (i % 100) as f32 * (CIRCLE_SIZE + 3.);
+            let y = (i / 1000) as f32 * (CIRCLE_SIZE + 3.);
+            render_circles.push((Vec2(x, y), Vec2(x, y)));
         }
         Self
         {
-            circles_old,
             render_circles : Arc::new(Mutex::new(render_circles)),
             sim_steps : 0,
             instant : Instant::now(),
@@ -56,15 +53,15 @@ impl Simulation
         }
         self.sim_steps += 1;
 
-        let circle_lock = self.render_circles.lock().unwrap();
-        let mut circles = circle_lock.clone();
-        drop(circle_lock);
+        let mut circles = self.render_circles.lock().unwrap().clone();
         let win_size = self.window_size.lock().unwrap().clone();
         let mut quad_tree : QuadTree<usize> = QuadTree::new(0., 0., win_size.0, win_size.1, 200, CIRCLE_SIZE * 2., 12);
 
-        for (i, (circle, circle_old)) in zip::<&mut Vec<Vec2>, &mut Vec<Vec2>>(circles.as_mut(), &mut self.circles_old).enumerate()
+        let mut i = 0;
+        for (circle, circle_old) in circles.iter_mut()
         {
             quad_tree.add(i, *circle);
+            i += 1;
 
             let mut velocity = *circle - *circle_old;
             velocity = velocity * 0.97;
@@ -76,35 +73,32 @@ impl Simulation
         
         for i1 in 0..circles.len()
         {
-            for v in quad_tree.query(circles[i1])
+            for v in quad_tree.query(circles[i1].0)
             {
                 let i2 = v.1;
                 if i1 == i2
                 {
                     continue;
                 }
-                let dist = circles[i1].dist(&circles[i2]).max(0.01);
+                let dist = circles[i1].0.dist(&circles[i2].0).max(0.01);
                 if dist < CIRCLE_SIZE * 2.
                 {
-                    let midpoint = (circles[i1] + circles[i2]) / 2.;
+                    let midpoint = (circles[i1].0 + circles[i2].0) / 2.;
                     
-                    let new_pos_i1 = midpoint + (circles[i1] - circles[i2]) * CIRCLE_SIZE / dist;
-                    let new_pos_i2 = midpoint + (circles[i2] - circles[i1]) * CIRCLE_SIZE / dist;
+                    let new_pos_i1 = midpoint + (circles[i1].0 - circles[i2].0) * CIRCLE_SIZE / dist;
+                    let new_pos_i2 = midpoint + (circles[i2].0 - circles[i1].0) * CIRCLE_SIZE / dist;
 
                     // let new_old_pos_i1 = self.circles_old[i1] + (circles[i1] - new_pos_i1);
                     // let new_old_pos_i2 = self.circles_old[i2] + (circles[i2] - new_pos_i2);
 
-                    circles[i1] = new_pos_i1; circles[i2] = new_pos_i2;
+                    circles[i1].0 = new_pos_i1; circles[i2].0 = new_pos_i2;
 
                     // self.circles_old[i1] = new_old_pos_i1;
                     // self.circles_old[i2] = new_old_pos_i2;
                 }
             }
         }
-
-
         *self.render_circles.lock().unwrap().as_mut() = circles;
-
         // thread::sleep(Duration::from_secs_f64(1. / 100.));
     }
 
@@ -116,7 +110,7 @@ impl Simulation
 
 struct AppWindow
 {
-    pub render_circles : Arc<Mutex<Vec<Vec2>>>,
+    pub render_circles : Arc<Mutex<Vec<(Vec2, Vec2)>>>,
     pub frames : u32,
     pub instant : Instant,
     pub window_size : Arc<Mutex<(f32, f32)>>
@@ -146,22 +140,9 @@ impl WindowHandler for AppWindow
         let circle_lock = self.render_circles.lock().unwrap();
         let circles = circle_lock.clone();
         drop(circle_lock);
-        let mut r  = 0;
-        let mut g = 0;
-        let mut b = 0;
         for circle in circles
         {
-            graphics.draw_circle(Vector2::new(circle.0, circle.1), CIRCLE_SIZE, Color::from_int_rgb(r.max(50), g.max(50), b.max(50)));
-            r = r.overflowing_add(1).0;
-            if r == 255
-            {
-                g = g.overflowing_add(1).0;
-            }
-
-            if g == 255
-            {
-                b = b.overflowing_add(1).0;
-            }
+            graphics.draw_circle(Vector2::new(circle.0.0, circle.0.1), CIRCLE_SIZE / 2., Color::from_rgb(circle.0.dist(&circle.1) / 10., 0.,0.));
         }
 
         helper.request_redraw();
